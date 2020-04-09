@@ -170,7 +170,7 @@ if parameters.loc["min_workingTime_per_Day"]["to consider"] == "yes":
 
 
 # optional constraint: each employee can only work a given amount of hours per week
-if parameters.loc["max_employee_WorkingTime_per_Week"]["to consider"] == "yes":
+if parameters.loc["max_hours_per_week"]["to consider"] == "yes":
     for m in range(nr_employees):
         hoursPerWeek = float(data_employees.loc[list_employees[m],"max_hours_per_week"]) 
         overtime = 0
@@ -181,7 +181,7 @@ if parameters.loc["max_employee_WorkingTime_per_Week"]["to consider"] == "yes":
         model += xsum(x[m][t][s] for t in range(nr_days) for s in range(nr_slots)) <= (hoursPerWeek + overtime) * 2, constraint_name
         
 # optional constraint: each employee has to work a given amount of hours per week
-if parameters.loc["min_employee_WorkingTime_per_Week"]["to consider"] == "yes":
+if parameters.loc["min_hours_per_week"]["to consider"] == "yes":
     for m in range(nr_employees):
         hoursPerWeek = float(data_employees.loc[list_employees[m],"min_hours_per_week"]) 
         minusHours = 0
