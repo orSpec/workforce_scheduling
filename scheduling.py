@@ -69,7 +69,6 @@ def getGantt(plan):
     fig = ff.create_gantt(plan,index_col='Resource', group_tasks=True, title = "Workforce schedule")
     return fig
 
-
 # read input data from excel file (has multiple sheets)
 def readData(filepath):
     
@@ -280,8 +279,10 @@ if solved:
     
     # show gantt chart in default browser
     pio.renderers.default='browser'
+    #gantt.show()
     
-    gantt.show()
+    # create HTML file for gantt chart so that it can be deployed
+    pio.write_html(gantt, file="index.html", auto_open=True)
 
 
 
