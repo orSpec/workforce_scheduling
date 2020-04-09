@@ -24,7 +24,7 @@ An employee can have a special qualification (e.g. management experience, safety
  
  The demand for employees with this qualification for a slot with demand is given by λ.
  For each employee there can be requirements for the minimum and maximum working hours he/she has to work per week. Additionaly there is a global minimum for the length of a shift: If an employee works on a day the shift has to be equal or longer than δ. For each employee and day the length of the shift can't exceed a value of Ω hours.
-The maximum working hours per week for an employee can be exceeded if Θ is bigger than zero. In this case the employee does overtime. In contrast if Φ is bigger than zero an employee can work less than the agreed minimum working hours per week.
+The maximum working hours per week for an employee can be exceeded if Θ is greater than zero. In this case the employee does overtime. In contrast if Φ is greater than zero an employee can work less than the agreed minimum working hours per week.
 The parameter γ denotes the availablity in hours of an employee on a given day. If set to 0 the employee is not available (e.g. due to sickness, vacation, etc.).
 
 The problem needs these decision variables:
@@ -45,3 +45,52 @@ Constraint (4) ensures that in each slot at least λ employees with special qual
 Constraint (9) ensures that an employee can only work on a given day if he is available. Then the length of the shift can't exceed his availability in hours.
 
 Finally, constraints (10) and (11) define the domain of the decision variables.
+## Input data
+Inside the excel file /data/InputData.xlsx all necessary information can be put into the following sheets:
+* Employees:
+	* the names of the employees
+	* whether an employee has special qualification (1) or not (0)
+	* their availability on a specific day, later referred to as 
+		*max_employee_WorkingTime_per_Day*	
+	* their minimum working hours per week (*min_hours_per_week*)
+	* their maximum working hours per week (*max_hours_per_week*)
+* Demand: the demand in personell for a 30 min time slot on a specific day
+* Days: the days to plan and the corresponding dates
+* Parameters (set *yes* if the constraint corresponding to the parameter is to be included in the model, else set *no*)
+	* *min_workingTime_per_Day* corresponds to δ
+	* *max_workingTime_per_Day* corresponds to Ω
+	* *minusHours_per_Week* corresponds to Φ
+	* *overtime_per_Week* corresponds to Θ
+	* *demand_specialQualification_per_Slot* corresponds to λ
+	
+	For the last three parameters *max_hours_per_week*, *min_hours_per_week* and 		*max_employee_WorkingTime_per_Day* the corresponding values from the sheet *Employees* are taken as values. 
+* Optimization_Parameters
+	* *timeInSeconds*: maximum runtime in seconds (if left empty, there is no limit)
+	* *mipGap*: maximum percentage deviation from the best node remaining in the branch and bound tree (if empty, default value of 1e-4 is used)
+
+## Solution
+If a feasible solution was found, one can generate the resulting schedule as a pandas DataFrame:
+```python
+plan = generateSchedule(x, z, nr_employees, nr_days, nr_slots, list_employees, days, slots, input_days)
+``` 
+The generated scheduled can be visualized using a plotly Gantt Chart:
+```python
+gantt = getGantt(plan)
+```
+Finally, with
+```python
+pio.renderers.default='browser'
+gantt.show()
+```
+the Gantt chart is shown in the default browser.
+
+One can even deploy the chart in a [website](https://orspec.github.io/workforce_scheduling/). Zoomed in on a single day it looks like this:
+
+<a href="https://orspec.github.io/workforce_scheduling/">
+<img src="https://user-images.githubusercontent.com/59450716/78926264-16407a80-7a9d-11ea-829d-fdaf4855b824.png" width="800">
+</a>
+
+You can see immediately that Mary and Jaden don't work on April 13th.
+
+
+
