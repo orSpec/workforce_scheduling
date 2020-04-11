@@ -63,10 +63,12 @@ def generateSchedule(x,z,nr_employees, nr_days, nr_slots, list_employees, days, 
 
 # from a workforce schedule, construct a gantt chart using plotly
 def getGantt(plan):
-    plan["Resource"] = plan["Employee"]
-    plan = plan.rename(columns = {"Employee" : "Task", "Start" : "Start", "End": "Finish"})
     
-    fig = ff.create_gantt(plan,index_col='Resource', group_tasks=True, title = "Workforce schedule")
+    df = plan.copy()
+    df["Resource"] = df["Employee"]
+    df = df.rename(columns = {"Employee" : "Task", "Start" : "Start", "End": "Finish"})
+    
+    fig = ff.create_gantt(df,index_col='Resource', group_tasks=True, title = "Workforce schedule")
     return fig
 
 # read input data from excel file (has multiple sheets)
@@ -282,7 +284,9 @@ if solved:
     #gantt.show()
     
     # create HTML file for gantt chart so that it can be deployed
-    pio.write_html(gantt, file="index.html", auto_open=True)
+    #pio.write_html(gantt, file="index.html", auto_open=True)
+    
+    plan.to_pickle("plan.pkl")
 
 
 
