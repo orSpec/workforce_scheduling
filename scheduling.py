@@ -12,6 +12,19 @@ import plotly.figure_factory as ff
 import plotly.io as pio
 
 
+
+# read input data from excel file (has multiple sheets)
+def readData(filepath):
+    
+    data_employees = pd.read_excel(filepath,sheet_name="Employees").set_index("Name")
+    demand = pd.read_excel(filepath,sheet_name="Demand").set_index("Day")
+    parameters = pd.read_excel(filepath,sheet_name="Parameters").set_index("Parameter")
+    input_days = pd.read_excel(filepath,sheet_name="Days").set_index("Day")
+    optimization_parameters = pd.read_excel(filepath,sheet_name="Optimization_Parameters").set_index("Parameter")
+            
+    return data_employees, demand, parameters, input_days, optimization_parameters
+
+
 # from a feasible solution, construct the workforce schedule as pandas dataframe
 def generateSchedule(x,z,nr_employees, nr_days, nr_slots, list_employees, days, slots, input_days):
     column_names = ["Employee", "Date", "Day", "Start", "End"]
@@ -71,18 +84,91 @@ def getGantt(plan):
     fig = ff.create_gantt(df,index_col='Resource', group_tasks=True, title = "Workforce schedule")
     return fig
 
-# read input data from excel file (has multiple sheets)
-def readData(filepath):
+# calculate weekly working times for the employees (including minus hours and overtime)
+def calculateWorkingTimes(employees, plan, data_employees):
     
-    data_employees = pd.read_excel(filepath,sheet_name="Employees").set_index("Name")
-    demand = pd.read_excel(filepath,sheet_name="Demand").set_index("Day")
-    parameters = pd.read_excel(filepath,sheet_name="Parameters").set_index("Parameter")
-    input_days = pd.read_excel(filepath,sheet_name="Days").set_index("Day")
-    optimization_parameters = pd.read_excel(filepath,sheet_name="Optimization_Parameters").set_index("Parameter")
-            
-    return data_employees, demand, parameters, input_days, optimization_parameters
+    workingTimes = dict.fromkeys(employees,0)
+    
 
+    for key, row in plan.iterrows():
+        employee = row["Employee"]
+        start = row["Start"]
+        end = row["End"]
+        if pd.isna(start):
+            continue
+        
+        timeDiff = end - start
+        hours = timeDiff.total_seconds() / 3600
 
+        workingTimes[employee] += hours
+
+    
+    df_workingTimes = pd.DataFrame.from_dict(workingTimes, orient = "index", columns = ["WeeklyHours"]).rename_axis("Name")
+    
+    columns = ["Name", "min_hours_per_week", "max_hours_per_week"]
+    df = df_workingTimes.merge(data_employees.filter(columns), left_index=True, right_index=True)
+    
+    df["minusHours"] = df["min_hours_per_week"] - df["WeeklyHours"]
+    df["overtime"] = df["WeeklyHours"] - df["max_hours_per_week"]
+    
+    # minusHours and overTime can't be negative
+    df[df < 0 ] = 0
+    
+    df = df[["min_hours_per_week", "max_hours_per_week", "WeeklyHours", "minusHours", "overtime"]]
+
+    return df
+
+# generate an excel file containing to sheets:
+# Schedule: Start and end time of the employees' shifts
+# weeklyHours: weekly working hours, minus hours and overtime per employee
+def writeToExcel(plan, weeklyHours):
+    
+    plan_excel = plan.copy()
+    
+    plan_excel["Date"] = plan_excel["Date"].dt.strftime('%d.%m.%Y') 
+    plan_excel["Start"] = plan_excel["Start"].dt.strftime("%H:%M")
+    plan_excel["End"] = plan_excel["End"].dt.strftime("%H:%M")
+    
+
+    with pd.ExcelWriter("Solution.xlsx", engine='xlsxwriter') as writer:
+    
+        plan_excel.to_excel(writer, sheet_name="Schedule",index=False,float_format = "%0.1f")
+        weeklyHours.to_excel(writer, sheet_name="weeklyHours", index=True)
+    
+        workbook  = writer.book
+    
+    
+    
+    
+        # define green style
+        green_format = workbook.add_format({'bg_color': '#0acd0a', 'font_color': '#ffffff'})
+    
+        # define red style
+        red_format = workbook.add_format({'bg_color': '#f64d00', 'font_color': '#ffffff'})
+    
+        # sheet schedule
+        worksheet_schedule = writer.sheets["Schedule"]
+    
+        # column width and format
+        worksheet_schedule.set_column('B:B', 12)
+        worksheet_schedule.set_column('C:C', 10)
+        worksheet_schedule.set_column('D:F', 6)
+    
+    
+        # sheet WweklyHours
+        worksheet_weeklyHours = writer.sheets['weeklyHours']
+    
+        # column width
+        worksheet_weeklyHours.set_column('A:A', 17)
+        worksheet_weeklyHours.set_column('B:C', 18)
+        worksheet_weeklyHours.set_column('D:F', 11)
+    
+        # conditional formats for minushours and overtime
+        worksheet_weeklyHours.conditional_format('E2:E10000', {"type": "cell", "criteria": ">", "value": 0, "format": green_format})
+        worksheet_weeklyHours.conditional_format('F2:F10000', {"type": "cell", "criteria": ">", "value": 0, "format": red_format})
+        
+        
+        
 
 input_datafile = "./data/InputData.xlsx"
 
@@ -284,9 +370,13 @@ if solved:
     #gantt.show()
     
     # create HTML file for gantt chart so that it can be deployed
-    #pio.write_html(gantt, file="index.html", auto_open=True)
+    pio.write_html(gantt, file="index.html", auto_open=True)
     
-    plan.to_pickle("plan.pkl")
+    # generate solution as excel file
+    weeklyTimes = calculateWorkingTimes(list_employees, plan, data_employees)
+    writeToExcel(plan, weeklyTimes)
+    
+    
 
 
 
